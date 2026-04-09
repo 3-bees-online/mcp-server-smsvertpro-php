@@ -123,6 +123,24 @@ $tools = array(
         )
     ),
     array(
+        'name' => 'cancel_sms',
+        'description' => "Annule un SMS programmé ou une campagne entière. Seuls les SMS en attente d'envoi peuvent être annulés. Les crédits sont automatiquement recrédités.",
+        'inputSchema' => array(
+            'type' => 'object',
+            'properties' => array(
+                'campaign_id' => array(
+                    'type' => 'string',
+                    'description' => "L'identifiant de la campagne à annuler"
+                ),
+                'sms_id' => array(
+                    'type' => 'string',
+                    'description' => "Optionnel. L'identifiant d'un SMS spécifique à annuler. Si non fourni, toute la campagne est annulée."
+                )
+            ),
+            'required' => array('campaign_id')
+        )
+    ),
+    array(
         'name' => 'generate_otp',
         'description' => "Génère et envoie un code OTP (One-Time Password) par SMS pour l'authentification à deux facteurs. Le code est valable quelques minutes.",
         'inputSchema' => array(
@@ -252,6 +270,26 @@ function handleTool($toolName, $args, $token)
         case 'get_blacklist':
             $result = callApi($token, array('request' => 'blacklist'));
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        case 'cancel_sms':
+            $payload = array(
+                'request'     => 'cancel',
+                'campaign_id' => $args['campaign_id']
+            );
+            if(!empty($args['sms_id']))
+            {
+                $payload['sms_id'] = $args['sms_id'];
+            }
+            $result = callApi($token, $payload);
+            if(isset($result['status']) && $result['status'] === 'CANCEL_OK')
+            {
+                return "Annulation réussie.\nCrédits recrédités. Nouveau solde : " . ($result['credits'] ?? '?') . " crédits.";
+            }
+            if(isset($result['status']) && $result['status'] === 'INVALID_SMS')
+            {
+                return "Erreur : SMS introuvable ou déjà envoyé.";
+            }
+            return "Erreur d'annulation : " . ($result['status'] ?? 'Inconnu') . "\n" . json_encode($result);
 
         case 'generate_otp':
             $result = callApi($token, array(
