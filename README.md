@@ -2,9 +2,11 @@
   <img src="logo.png" alt="SMS Vert Pro" width="220" />
 </p>
 
-# SMS Vert Pro — Serveur MCP
+# SMS Vert Pro — Serveur MCP PHP
 
-Serveur [MCP (Model Context Protocol)](https://modelcontextprotocol.io) pour envoyer des SMS professionnels via [SMS Vert Pro](https://www.smsvertpro.com) depuis n'importe quel agent IA : Claude, ChatGPT, LangChain, CrewAI, AutoGen, etc.
+Serveur [MCP (Model Context Protocol)](https://modelcontextprotocol.io) en **PHP** pour envoyer des SMS professionnels via [SMS Vert Pro](https://www.smsvertpro.com) depuis n'importe quel agent IA : Claude, ChatGPT, LangChain, CrewAI, AutoGen, etc.
+
+> Version Python disponible : [mcp-server-smsvertpro-python](https://github.com/3-bees-online/mcp-server-smsvertpro-python)
 
 ## Prérequis
 
@@ -15,7 +17,7 @@ Serveur [MCP (Model Context Protocol)](https://modelcontextprotocol.io) pour env
 ## Installation
 
 ```bash
-git clone https://github.com/smsvertpro/mcp-server-smsvertpro.git
+git clone https://github.com/3-bees-online/mcp-server-smsvertpro-php.git
 cd mcp-server-smsvertpro
 ```
 
