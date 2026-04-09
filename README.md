@@ -69,6 +69,7 @@ Puis configurez la variable d'environnement `SMSVERTPRO_API_TOKEN`.
 | `get_blacklist` | Liste des désabonnements (STOP) |
 | `generate_otp` | Envoyer un code OTP par SMS |
 | `verify_otp` | Vérifier un code OTP |
+| `cancel_sms` | Annuler un SMS programmé ou une campagne |
 
 ## Exemples d'utilisation
 
