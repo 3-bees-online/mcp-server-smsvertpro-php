@@ -182,13 +182,21 @@ $tools = array(
 
 function callApi($token, $payload)
 {
+    $endpoint = '';
+    if(isset($payload['request']))
+    {
+        $endpoint = $payload['request'];
+        unset($payload['request']);
+    }
+    $url = rtrim(API_URL, '/') . '/' . $endpoint;
+
     $ch = curl_init();
     curl_setopt_array($ch, array(
-        CURLOPT_URL            => API_URL,
+        CURLOPT_URL            => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 30,
         CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_POSTFIELDS     => json_encode((object)$payload),
         CURLOPT_HTTPHEADER     => array(
             'Content-Type: application/json',
             'Authorization: Bearer ' . $token
