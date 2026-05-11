@@ -175,8 +175,67 @@ $tools = array(
             ),
             'required' => array('to', 'code')
         )
+    ),
+    array(
+        'name' => 'count_sms_parts',
+        'description' => "Calcule localement combien de SMS (parts) un message va consommer. 100% local, n'envoie rien, ne consomme aucun crédit. Permet à l'agent IA d'estimer le coût d'une campagne avant d'appeler send_sms : 1 SMS = 160 caractères GSM-7 (153 si concaténé). Par défaut, SMS Vert Pro envoie uniquement en GSM-7 — un message contenant emojis ou caractères non-GSM (â, ê, î, ô, û, ç minuscule, ï, ë, etc.) sera REJETÉ (status EMOJI_NOT_ALLOWED). Le support Unicode est activable sur demande auprès du support.",
+        'inputSchema' => array(
+            'type' => 'object',
+            'properties' => array(
+                'message' => array(
+                    'type' => 'string',
+                    'description' => "Texte du SMS à analyser"
+                )
+            ),
+            'required' => array('message')
+        )
     )
 );
+
+// ─── GSM-7 charset (RFC complet : alphabet + extension) ────────
+function smsvpGsm7Chars() {
+    static $chars = null;
+    if($chars === null) {
+        $base = array(
+            '@','£','$','¥','è','é','ù','ì','ò','Ç',"\n",'Ø','ø',"\r",'Å','å',
+            "\xCE\x94",'_',"\xCE\xA6","\xCE\x93","\xCE\x9B","\xCE\xA9","\xCE\xA0","\xCE\xA8","\xCE\xA3","\xCE\x98","\xCE\x9E","\x1B",'Æ','æ','ß','É',
+            ' ','!','"','#','¤','%','&',"'",'(',')','*','+',',','-','.','/',
+            '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?',
+            '¡','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O',
+            'P','Q','R','S','T','U','V','W','X','Y','Z','Ä','Ö','Ñ','Ü','§',
+            '¿','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o',
+            'p','q','r','s','t','u','v','w','x','y','z','ä','ö','ñ','ü','à'
+        );
+        $ext = array("\f",'^','{','}','\\','[','~',']','|','€');
+        $chars = array_flip(array_merge($base, $ext));
+    }
+    return $chars;
+}
+
+function smsvpIsGsm7($message) {
+    $allowed = smsvpGsm7Chars();
+    $len = mb_strlen($message, 'UTF-8');
+    for($i = 0; $i < $len; $i++) {
+        $c = mb_substr($message, $i, 1, 'UTF-8');
+        if(!isset($allowed[$c])) return false;
+    }
+    return true;
+}
+
+function smsvpGsm7Length($message) {
+    // Longueur "facturable" GSM-7 : chaque caractère d'extension (€ { } [ ] | ~ ^ \ \f)
+    // compte 2 unités (l'escape \x1B + le caractère). Doit être utilisé pour le calcul des parts.
+    $ext = array("\f", '^', '{', '}', '\\', '[', '~', ']', '|', '€');
+    $extra = 0;
+    foreach($ext as $c) { $extra += substr_count($message, $c); }
+    return mb_strlen($message, 'UTF-8') + $extra;
+}
+
+function smsvpCountParts($message) {
+    $len = smsvpGsm7Length($message);
+    if($len <= 160) return 1;
+    return (int)ceil($len / 153);
+}
 
 // ─── API Helper ──────────────────────────────────────────────────
 
@@ -330,6 +389,21 @@ function handleTool($toolName, $args, $token)
                 return "Ce code OTP a déjà été vérifié le " . ($result['verified_at'] ?? '?') . ".";
             }
             return "Erreur OTP : " . ($result['status'] ?? 'Inconnu');
+
+        case 'count_sms_parts':
+            $message = $args['message'] ?? '';
+            if($message === '') return "Message vide : 0 part, 0 caractères.";
+            $chars = mb_strlen($message, 'UTF-8');
+            if(!smsvpIsGsm7($message)) {
+                return "REJET PRÉVU : le message contient des caractères non-GSM-7. SMS Vert Pro rejettera l'envoi avec le code 'EMOJI_NOT_ALLOWED'.\n\nCaractères : $chars\n\nCaractères incompatibles à retirer ou remplacer : emojis, accents circonflexes (â ê î ô û), ç minuscule (utiliser 'c'), ï, ë, ÿ. Les accents GSM-7 acceptés sont : é è à ù É Ç (majuscule).\n\nReprendre la rédaction sans ces caractères, puis rappeler count_sms_parts pour estimer le coût final. (Le support Unicode est activable sur demande auprès du support SMS Vert Pro.)";
+            }
+            $billingLength = smsvpGsm7Length($message);
+            $parts = smsvpCountParts($message);
+            $perPart = ($parts === 1) ? 160 : 153;
+            $extNote = ($billingLength !== $chars)
+                ? "\nLongueur facturée : $billingLength unités GSM-7 (présence de " . ($billingLength - $chars) . " caractère(s) d'extension comme € { } [ ] | ~ ^ \\ qui comptent 2)"
+                : '';
+            return "Encodage : GSM-7 (compatible SMS Vert Pro)\nCaractères tapés : $chars$extNote\nParts (SMS) : $parts\nCapacité par part : $perPart caractères\n\nCoût pour 1 destinataire : $parts crédit(s). Pour estimer une campagne, multiplier par le nombre de destinataires.";
 
         default:
             return "Outil inconnu : " . $toolName;
